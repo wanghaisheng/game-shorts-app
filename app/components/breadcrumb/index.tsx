@@ -27,30 +27,11 @@ export function Breadcrumb({ slug }: { slug?: string }) {
         <li>
           <Link
             to={
-              slug
-                ? Routes.AdminContentThumbnail(slug)
-                : Routes.AdminContentTitle
-            }
-            className={styles.breadcrumbLink}
-            data-current={
-              location.pathname.includes(
-                Routes.AdminContentThumbnail(slug ?? "")
-              )
-                ? "true"
-                : "false"
-            }
-          >
-            Thumbnail
-          </Link>
-        </li>
-        <li>
-          <Link
-            to={
               slug ? Routes.AdminContentVideo(slug) : Routes.AdminContentTitle
             }
             className={styles.breadcrumbLink}
             data-current={
-              location.pathname.includes(Routes.AdminContentVideo(slug ?? ""))
+              slug && location.pathname.includes(Routes.AdminContentVideo(slug))
                 ? "true"
                 : "false"
             }
@@ -62,14 +43,33 @@ export function Breadcrumb({ slug }: { slug?: string }) {
           <Link
             to={
               slug
+                ? Routes.AdminContentTagsDescription(slug)
+                : Routes.AdminContentTitle
+            }
+            className={styles.breadcrumbLink}
+            data-current={
+              slug &&
+              location.pathname.includes(
+                Routes.AdminContentTagsDescription(slug)
+              )
+                ? "true"
+                : "false"
+            }
+          >
+            Tags & Description
+          </Link>
+        </li>
+        <li>
+          <Link
+            to={
+              slug
                 ? Routes.AdminContentScheduler(slug)
                 : Routes.AdminContentTitle
             }
             className={styles.breadcrumbLink}
             data-current={
-              location.pathname.includes(
-                Routes.AdminContentScheduler(slug ?? "")
-              )
+              slug &&
+              location.pathname.includes(Routes.AdminContentScheduler(slug))
                 ? "true"
                 : "false"
             }

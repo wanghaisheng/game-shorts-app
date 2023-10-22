@@ -2,7 +2,7 @@ import { cssBundleHref } from "@remix-run/css-bundle";
 import type { LoaderArgs, MetaFunction } from "@remix-run/node";
 import type { LinksFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link } from "@remix-run/react";
+import { Link, useLocation } from "@remix-run/react";
 import {
   Links,
   LiveReload,
@@ -46,22 +46,30 @@ export async function loader({ request }: LoaderArgs) {
 }
 
 export default function App() {
+  const location = useLocation();
+
   return (
     <html lang="en">
       <head>
         <Meta />
         <Links />
+        {location.pathname === Routes.Signup ? (
+          <script
+            async
+            src="https://js.stripe.com/v3/pricing-table.js"
+          ></script>
+        ) : null}
       </head>
       <body>
         <nav className={styles.nav}>
           <Link to={Routes.Index}>
-            <h3>Shorts Publisher</h3>
+            <h3>Content</h3>
           </Link>
           <menu className={styles.menu}>
             <ul className={styles.ul}>
               <li>
                 <Link to={Routes.Admin}>
-                  <h3>Admin</h3>
+                  <h3>Settings</h3>
                 </Link>
               </li>
               <li>

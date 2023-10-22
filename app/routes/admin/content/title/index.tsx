@@ -1,11 +1,17 @@
+import type { Project } from "@prisma/client";
 import type {
   ActionFunction,
   LoaderFunction,
   MetaFunction,
 } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
-import { Form, useParams,useTransition } from "@remix-run/react";
-import invariant from "tiny-invariant";
+import { json, redirect } from "@remix-run/node";
+import {
+  Form,
+  useLoaderData,
+  useNavigation,
+  useParams,
+} from "@remix-run/react";
+import { zfd } from "zod-form-data";
 
 import { Breadcrumb } from "~/components/breadcrumb";
 import { upsertContent } from "~/models/content.server";
@@ -19,6 +25,10 @@ export const meta: MetaFunction = () => {
   };
 };
 
+type LoaderData = {
+  project: Project;
+};
+
 export const loader: LoaderFunction = async ({ request }) => {
   const user = await getUser(request);
 
@@ -26,14 +36,25 @@ export const loader: LoaderFunction = async ({ request }) => {
     return redirect(Routes.Login);
   }
 
-  return null;
+  const project = user.projects.find(
+    (project) => project.id === user.currentProjectId
+  );
+
+  if (!project) {
+    return redirect(Routes.AdminCreateProject);
+  }
+
+  return json({
+    project,
+  });
 };
 
-export const action: ActionFunction = async ({ request }) => {
-  const formData = await request.formData();
-  const title = formData.get("title");
+const schema = zfd.formData({
+  title: zfd.text(),
+});
 
-  invariant(typeof title === "string", "title is required");
+export const action: ActionFunction = async ({ request }) => {
+  const { title } = schema.parse(await request.formData());
 
   const user = await getUser(request);
 
@@ -45,15 +66,17 @@ export const action: ActionFunction = async ({ request }) => {
 
   await upsertContent({
     slug,
-    title: title.toString().trim(),
+    title: title.trim(),
     projectId: user.currentProjectId,
   });
 
-  return redirect(Routes.AdminContentThumbnail(slug));
+  return redirect(Routes.AdminContentVideo(slug));
 };
 
 export default function Page() {
-  const transition = useTransition();
+  const transition = useNavigation();
+
+  const { project } = useLoaderData<LoaderData>();
 
   const { slug } = useParams();
 
@@ -62,8 +85,11 @@ export default function Page() {
 
   return (
     <main className={styles.main}>
+      <h2 className={styles.pageTitle}>
+        <em>{project.title}</em>
+      </h2>
+      <Breadcrumb slug={slug} />
       <fieldset disabled={disabled} className={styles.fieldset}>
-        <Breadcrumb slug={slug} />
         <Form method="post">
           <input
             type="text"

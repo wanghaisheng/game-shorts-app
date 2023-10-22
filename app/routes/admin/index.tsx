@@ -1,8 +1,9 @@
-import type { Channel } from "@prisma/client";
+import type { Channel, PlanType } from "@prisma/client";
 import { ChannelType } from "@prisma/client";
-import type { ActionFunction,LoaderArgs } from "@remix-run/node";
-import { json,redirect } from "@remix-run/node";
-import { Form, Link,useLoaderData, useSubmit } from "@remix-run/react";
+import type { ActionFunction, LoaderArgs } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import { Form, Link, useLoaderData, useSubmit } from "@remix-run/react";
+import { zfd } from "zod-form-data";
 
 import { prisma } from "~/db.server";
 import { getChannels } from "~/models/chanel.server";
@@ -10,6 +11,7 @@ import { getProject } from "~/models/project.server";
 import { Routes } from "~/routes";
 import { getUser } from "~/session.server";
 import styles from "~/styles/admin.module.css";
+import { SUPPORTED_CHANNELS } from "~/utils/constants";
 
 type LoaderData = {
   user?: Awaited<ReturnType<typeof getUser>>;
@@ -28,25 +30,24 @@ export const loader = async ({ request }: LoaderArgs) => {
     return redirect(Routes.AdminCreateProject);
   }
 
-  const project = await getProject({
-    id: user.currentProjectId,
-  });
-
   return json<LoaderData>({
     user,
-    project,
+    project: await getProject({
+      id: user.currentProjectId,
+    }),
     channels: await getChannels({
       projectId: user.currentProjectId,
     }),
   });
 };
 
+const schema = zfd.formData({
+  currentProjectId: zfd.text().optional(),
+  userId: zfd.text().optional(),
+});
+
 export const action: ActionFunction = async ({ request }) => {
-  const formData = await request.formData();
-
-  const currentProjectId = formData.get("currentProjectId");
-
-  const userId = formData.get("userId");
+  const { currentProjectId, userId } = schema.parse(await request.formData());
 
   if (!currentProjectId || !userId) {
     return redirect(Routes.Login);
@@ -54,10 +55,10 @@ export const action: ActionFunction = async ({ request }) => {
 
   const user = prisma.user.update({
     where: {
-      id: userId.toString(),
+      id: userId,
     },
     data: {
-      currentProjectId: currentProjectId.toString(),
+      currentProjectId,
     },
   });
 
@@ -123,8 +124,31 @@ export default function Page() {
           );
         })}
       </section>
+      <section className={styles.currentPlanSection}>
+        {user.planType ? (
+          <div className={styles.currentPlanName}>
+            <h2> {getChannelFromChannelType(user.planType)}</h2>
+            <Link to={Routes.Signup}>Update Plan</Link>
+          </div>
+        ) : (
+          <Link to={Routes.Signup}>
+            <h3>Select a Plan</h3>
+          </Link>
+        )}
+      </section>
     </main>
   );
+}
+
+function getChannelFromChannelType(planType: PlanType) {
+  switch (planType) {
+    case "STARTER":
+      return "Starter";
+    case "GROWTH":
+      return "Growth";
+    case "PROFESSIONAL":
+      return "Professional";
+  }
 }
 
 function getRouteFromChannelType(channelType: ChannelType) {
@@ -155,14 +179,25 @@ function ChannelItem({
   return (
     <Link
       className={styles.channel}
-      to={getRouteFromChannelType(channelType)}
+      to={
+        SUPPORTED_CHANNELS.includes(channelType)
+          ? getRouteFromChannelType(channelType)
+          : "#"
+      }
       data-selected={projectChannel ? "true" : "false"}
+      data-supported={
+        SUPPORTED_CHANNELS.includes(channelType) ? "true" : "false"
+      }
     >
-      <h3 className={styles.channelTitle}>{`${
-        projectChannel
-          ? `${channelType} | ${projectChannel.name}`
-          : `ADD ${channelType} CHANNEL`
-      }`}</h3>
+      {SUPPORTED_CHANNELS.includes(channelType) ? (
+        <h3 className={styles.channelTitle}>{`${
+          projectChannel
+            ? `${channelType} | ${projectChannel.name}`
+            : `ADD ${channelType} CHANNEL`
+        }`}</h3>
+      ) : (
+        <h3 className={styles.channelTitle}>{`${channelType} COMING SOON`}</h3>
+      )}
     </Link>
   );
 }

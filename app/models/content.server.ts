@@ -1,7 +1,25 @@
-import type { Content } from "@prisma/client";
+import type { Content as ContentModel } from "@prisma/client";
 
 import { prisma } from "~/db.server";
-export type { Content };
+
+export type Content = Omit<
+  ContentModel,
+  | "createdAt"
+  | "updatedAt"
+  | "youtubePublishAt"
+  | "tikTokPublishAt"
+  | "instagramPublishAt"
+  | "facebookPublishAt"
+  | "twitterPublishAt"
+> & {
+  createdAt: string | null;
+  updatedAt: string | null;
+  youtubePublishAt: string | null;
+  tikTokPublishAt: string | null;
+  instagramPublishAt: string | null;
+  facebookPublishAt: string | null;
+  twitterPublishAt: string | null;
+};
 
 export async function getContent(params: { slug: string; projectId: string }) {
   const { slug, projectId } = params;
@@ -27,14 +45,27 @@ export async function getContent(params: { slug: string; projectId: string }) {
   });
 }
 
-export async function getContents(params: { projectId: string }) {
+export async function getContents(params: {
+  projectId: string;
+}): Promise<Content[]> {
   const { projectId } = params;
 
-  return prisma.content.findMany({
+  const content = await prisma.content.findMany({
     where: {
       projectId,
     },
   });
+
+  return content.map((content) => ({
+    ...content,
+    createdAt: content.createdAt?.toISOString() || null,
+    updatedAt: content.updatedAt?.toISOString() || null,
+    youtubePublishAt: content.youtubePublishAt?.toISOString() || null,
+    tikTokPublishAt: content.tikTokPublishAt?.toISOString() || null,
+    instagramPublishAt: content.instagramPublishAt?.toISOString() || null,
+    facebookPublishAt: content.facebookPublishAt?.toISOString() || null,
+    twitterPublishAt: content.twitterPublishAt?.toISOString() || null,
+  }));
 }
 
 interface UpsertContentParams {
@@ -42,10 +73,13 @@ interface UpsertContentParams {
   projectId: string;
   title?: string;
   description?: string | null;
-  published?: boolean | null;
-  publishAt?: Date | null;
   tags?: string[];
   thumbnail?: string | null;
+  youtubePublishAt?: Date | null;
+  tikTokPublishAt?: Date | null;
+  instagramPublishAt?: Date | null;
+  facebookPublishAt?: Date | null;
+  twitterPublishAt?: Date | null;
 }
 
 export async function upsertContent(content: UpsertContentParams) {
@@ -60,7 +94,6 @@ export async function upsertContent(content: UpsertContentParams) {
       slug: content.slug,
       projectId: content.projectId,
       title: content.title || "Untitled Content",
-      published: content.published || false,
     },
     update: {
       ...content,

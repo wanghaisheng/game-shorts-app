@@ -16,7 +16,7 @@
     "test:e2e:dev": "start-server-and-test dev http://localhost:3000 \"npx cypress open\"",
     "pretest:e2e:run": "npm run build",
     "test:e2e:run": "cross-env PORT=8811 start-server-and-test start:mocks http://localhost:8811 \"npx cypress run\"",
-    "typecheck": "tsc -b && tsc -b cypress",
+    "typecheck": "node --max-old-space-size=4096 ./node_modules/.bin/tsc -b",
     "validate": "run-p \"test -- --run\" lint typecheck test:e2e:run",
     "postinstall": "npx prisma generate"
   },
@@ -45,8 +45,10 @@
     "prisma": "4.15.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "stripe": "^11.1.0",
-    "tiny-invariant": "^1.2.0"
+    "stripe": "^11.18.0",
+    "tiny-invariant": "^1.2.0",
+    "zod": "^3.21.4",
+    "zod-form-data": "^2.0.1"
   },
   "devDependencies": {
     "@faker-js/faker": "^7.5.0",

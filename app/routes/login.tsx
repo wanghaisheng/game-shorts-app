@@ -4,10 +4,11 @@ import {
   Form,
   Link,
   useActionData,
+  useNavigation,
   useSearchParams,
-  useTransition,
 } from "@remix-run/react";
 import * as React from "react";
+import { zfd } from "zod-form-data";
 
 import { verifyLogin } from "~/models/user.server";
 import { Routes } from "~/routes";
@@ -21,30 +22,35 @@ export async function loader({ request }: LoaderArgs) {
   return json({});
 }
 
+const schema = zfd.formData({
+  email: zfd.text(),
+  password: zfd.text(),
+  redirectTo: zfd.text(),
+  remember: zfd.text().optional(),
+});
+
 export async function action({ request }: ActionArgs) {
-  const formData = await request.formData();
-  const email = formData.get("email");
-  const password = formData.get("password");
-  const redirectTo = safeRedirect(formData.get("redirectTo"), Routes.Admin);
-  const remember = formData.get("remember");
+  const { email, password, redirectTo, remember } = schema.parse(
+    await request.formData()
+  );
 
   if (!validateEmail(email)) {
     return json(
-      { errors: { email: "Email is invalid", password: null } },
+      { errors: { email: "is invalid", password: null } },
       { status: 400 }
     );
   }
 
   if (typeof password !== "string" || password.length === 0) {
     return json(
-      { errors: { email: null, password: "Password is required" } },
+      { errors: { email: null, password: "is required" } },
       { status: 400 }
     );
   }
 
   if (password.length < 8) {
     return json(
-      { errors: { email: null, password: "Password is too short" } },
+      { errors: { email: null, password: "is too short" } },
       { status: 400 }
     );
   }
@@ -62,7 +68,7 @@ export async function action({ request }: ActionArgs) {
     request,
     userId: user.id,
     remember: remember === "on" ? true : false,
-    redirectTo,
+    redirectTo: safeRedirect(redirectTo, Routes.Admin),
   });
 }
 
@@ -79,7 +85,7 @@ export default function Page() {
   const emailRef = React.useRef<HTMLInputElement>(null);
   const passwordRef = React.useRef<HTMLInputElement>(null);
 
-  const transition = useTransition();
+  const transition = useNavigation();
 
   React.useEffect(() => {
     if (actionData?.errors?.email) {
@@ -96,9 +102,19 @@ export default function Page() {
     <main className={styles.main}>
       <h1>Login</h1>
       <fieldset disabled={disabled} className={styles.fieldset}>
-        <Form>
+        {actionData?.errors ? (
+          <legend className={styles.legend}>Error!</legend>
+        ) : null}
+        <Form method="post">
           <div>
-            <label htmlFor="email">Email address</label>
+            <label htmlFor="email">
+              Email address{" "}
+              {actionData?.errors?.email && (
+                <span style={{ color: `var(--warning)` }}>
+                  {actionData.errors.email}
+                </span>
+              )}
+            </label>
             <div>
               <input
                 ref={emailRef}
@@ -112,15 +128,21 @@ export default function Page() {
                 aria-describedby="email-error"
                 className={styles.input}
               />
-              {actionData?.errors?.email && (
-                <div style={{ color: `palevioletred` }} id="email-error">
-                  {actionData.errors.email}
-                </div>
-              )}
             </div>
           </div>
           <div>
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">
+              Password{" "}
+              {actionData?.errors?.password && (
+                <span
+                  style={{
+                    color: `var(--warning)`,
+                  }}
+                >
+                  {actionData.errors.password}
+                </span>
+              )}
+            </label>
             <div>
               <input
                 id="password"
@@ -132,16 +154,6 @@ export default function Page() {
                 aria-describedby="password-error"
                 className={styles.input}
               />
-              {actionData?.errors?.password && (
-                <div
-                  style={{
-                    color: `palevioletred`,
-                  }}
-                  id="password-error"
-                >
-                  {actionData.errors.password}
-                </div>
-              )}
             </div>
           </div>
           <input type="hidden" name="redirectTo" value={redirectTo} />
@@ -154,8 +166,11 @@ export default function Page() {
             type="checkbox"
             className={styles.checkbox}
           />
-          <label htmlFor="remember">Remember me</label>
-          <div>
+          <label htmlFor="remember">
+            <small>Remember me</small>
+          </label>
+          <br />
+          <small>
             Don't have an account?{" "}
             <Link
               className={styles.signUp}
@@ -166,7 +181,7 @@ export default function Page() {
             >
               Sign up
             </Link>
-          </div>
+          </small>
         </Form>
       </fieldset>
     </main>
