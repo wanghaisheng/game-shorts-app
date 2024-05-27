@@ -1,62 +1,58 @@
+import { path as ffmpegPath } from "@ffmpeg-installer/ffmpeg";
 import type { Storage } from "@google-cloud/storage";
 import { exec } from "child_process";
 
 import type { PrismaClient } from "../generated";
 
-interface CreateGifParams {
+export interface CreateContentGifBody {
+  contentId: string;
   projectId: string;
-  slug: string;
-  ffmpegPath: string;
+}
+
+type CreateGifParams = CreateContentGifBody & {
   storage: Storage;
   prisma: PrismaClient;
-}
+};
 
 export async function createContentGif({
   projectId,
-  slug,
-  ffmpegPath,
+  contentId,
   storage,
   prisma,
 }: CreateGifParams) {
+  const gifFile = `${contentId}.gif`;
+  const gifStoragePath = `https://storage.googleapis.com/${projectId}/${gifFile}`;
+
   exec(
-    `${ffmpegPath} -i ${slug}.mp4 -vf "fps=31,scale=640:-1:flags=lanczos" -b:v 5000k -y -t 3 ${slug}.gif`,
+    `${ffmpegPath} -i ${contentId}.mp4 -vf "fps=31,scale=640:-1:flags=lanczos" -b:v 5000k -y -t 3 ${gifFile}`,
 
     async (error) => {
       if (error) {
-        console.log(`Error creating gif ${projectId} $${slug}`, error);
-        throw new Error(
-          `Error creating gif ${slug}.gif at ffmpegPath ${ffmpegPath}`
-        );
+        console.log(`Error`, error);
+        throw new Error(`ffmpeg error creating ${gifFile}`);
       }
-
-      const cloudStoragePath = `https://storage.googleapis.com/${projectId}/${slug}.gif`;
 
       await storage
         .bucket(projectId)
-        .upload(`${slug}.gif`)
+        .upload(gifFile)
         .then(async () => {
           await prisma.content.update({
             where: {
-              projectId_slug: {
-                projectId,
-                slug,
-              },
+              id: contentId,
             },
             data: {
-              gif: cloudStoragePath,
+              gif: gifStoragePath,
             },
           });
         })
         .catch((error) => {
           console.log(error);
-          throw new Error(
-            `Error saving gif to cloudStorage path ${cloudStoragePath}`
-          );
+          throw new Error(`Error uploading ${gifFile} to ${gifStoragePath}`);
         });
     }
   );
 
   return {
-    message: `Created Gif for ${projectId} / ${slug}`,
+    message: `Uploaded ${gifFile} url to ${gifStoragePath}`,
   };
 }

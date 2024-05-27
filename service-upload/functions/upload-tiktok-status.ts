@@ -1,20 +1,20 @@
 import type { PrismaClient } from "../generated";
 
 export interface UploadTikTokStatusQueryParams {
-  publish_id: string;
   project_id: string;
+  publish_id: string;
 }
 
 interface UploadTiktokStatusParams {
-  publishId: string;
-  projectId: string;
   prisma: PrismaClient;
+  projectId: string;
+  publishId: string;
 }
 
 export async function uploadTikTokStatus({
-  publishId,
-  projectId,
   prisma,
+  projectId,
+  publishId,
 }: UploadTiktokStatusParams) {
   const project = await prisma.project.findUnique({
     where: {
@@ -29,7 +29,7 @@ export async function uploadTikTokStatus({
     throw new Error(`Missing TikTok access token for project ${projectId}`);
   }
 
-  const statusRes = await fetch(
+  const res = await fetch(
     "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
     {
       method: "POST",
@@ -43,12 +43,12 @@ export async function uploadTikTokStatus({
     }
   );
 
-  if (!statusRes.ok) {
+  if (!res.ok) {
     throw new Error(`Error fetching tiktok status publish_id ${publishId}`);
   }
 
   return {
     message: `Status for publish_id ${publishId}`,
-    statusJson: statusRes.json(),
+    json: res.json(),
   };
 }

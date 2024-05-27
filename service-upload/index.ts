@@ -1,21 +1,38 @@
 import { Storage } from "@google-cloud/storage";
+import bodyParser from "body-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import type { Request, Response } from "express";
-import express, { json } from "express";
+import express from "express";
 
-import type { UploadContentBody } from "./functions/upload-content";
-import { uploadContent } from "./functions/upload-content";
-import type { UploadTikTokBody } from "./functions/upload-tiktok";
-import { uploadTikTok } from "./functions/upload-tiktok";
-import type { UploadTikTokStatusQueryParams } from "./functions/upload-tiktok-status";
-import { uploadTikTokStatus } from "./functions/upload-tiktok-status";
-import type { UploadYoutubeShortBody } from "./functions/upload-youtube-short";
-import { uploadYouTubeShort } from "./functions/upload-youtube-short";
+import {
+  createContentGif,
+  type CreateContentGifBody,
+} from "./functions/create-content-gif";
+import {
+  initializeUpload,
+  type InitializeUploadBody,
+} from "./functions/initialize-upload";
+import {
+  updateContent,
+  type UpdateContentBody,
+} from "./functions/update-content";
+import { uploadTikTok, type UploadTikTokBody } from "./functions/upload-tiktok";
+import {
+  uploadTikTokStatus,
+  type UploadTikTokStatusQueryParams,
+} from "./functions/upload-tiktok-status";
+import {
+  uploadYouTubeShort,
+  type UploadYoutubeShortBody,
+} from "./functions/upload-youtube-short";
 import { PrismaClient } from "./generated/index.js";
+import { ServiceUploadRoutes } from "./routes";
 import { APP_BASE_URL } from "./utils/constants";
 
-dotenv.config();
+dotenv.config({
+  path: `../.env.${process.env.NODE_ENV}`,
+});
 
 export const prisma = new PrismaClient();
 
@@ -23,7 +40,7 @@ export const storage = new Storage();
 
 const app = express();
 
-app.use(json());
+app.use(bodyParser.json());
 
 app.use(
   cors({
@@ -32,14 +49,14 @@ app.use(
 );
 
 app.post(
-  "/upload-content",
-  async (req: Request<{}, {}, UploadContentBody>, res: Response) => {
-    const { projectId, slug } = req.body;
+  ServiceUploadRoutes.InitializeUpload,
+  async (req: Request<{}, {}, InitializeUploadBody>, res: Response) => {
+    const { projectId, contentId } = req.body;
 
     try {
-      const { message } = await uploadContent({
+      const { message } = await initializeUpload({
         projectId,
-        slug,
+        contentId,
         prisma,
         storage,
       });
@@ -49,53 +66,95 @@ app.post(
       console.log(error);
       res
         .status(400)
-        .send(`Error Initializing content upload for ${projectId} / ${slug}`);
+        .send(`Error initializing upload ${projectId} ${contentId}`);
     }
   }
 );
 
 app.post(
-  "/upload-tiktok",
+  ServiceUploadRoutes.UploadTiktok,
   async (req: Request<{}, {}, UploadTikTokBody>, res: Response) => {
-    const { projectId, slug } = req.body;
+    const { contentId } = req.body;
 
     try {
       const { message } = await uploadTikTok({
-        projectId,
-        slug,
+        contentId,
         prisma,
       });
 
       res.status(200).send(message);
     } catch (error) {
       console.log(error);
-      res.status(400).send(`Error uploading tiktok ${projectId} / ${slug}`);
+      res.status(400).send(`Error uploading ${contentId} to TikTok`);
     }
   }
 );
 
 app.post(
-  "/upload-youtube-short",
+  ServiceUploadRoutes.UploadYoutubeShort,
   async (req: Request<{}, {}, UploadYoutubeShortBody>, res) => {
-    const { projectId, slug } = req.body;
+    const { contentId } = req.body;
+
     try {
       const { message } = await uploadYouTubeShort({
-        projectId,
-        slug,
+        contentId,
         prisma,
       });
 
       res.status(200).send(message);
     } catch (error) {
       console.log(error);
-      res
-        .status(400)
-        .send(`Error uploading youtube short ${projectId} / ${slug}`);
+      res.status(400).send(`Error uploading ${contentId} YouTube Short`);
     }
   }
 );
+
+app.post(
+  ServiceUploadRoutes.CreateContentGif,
+  async (req: Request<{}, {}, CreateContentGifBody>, res) => {
+    const { projectId, contentId } = req.body;
+
+    try {
+      const { message } = await createContentGif({
+        projectId,
+        contentId,
+        storage,
+        prisma,
+      });
+
+      res.status(200).send(message);
+    } catch (error) {
+      console.log(error);
+      res.status(400).send(`Error creating gif for ${contentId}`);
+    }
+  }
+);
+
+app.post(
+  ServiceUploadRoutes.UpdateContent,
+  async (req: Request<{}, {}, UpdateContentBody>, res) => {
+    const { contentId, bucketUrl } = req.body;
+
+    try {
+      const { message, content } = await updateContent({
+        prisma,
+        contentId,
+        bucketUrl,
+      });
+
+      res.status(200).json({
+        message,
+        content,
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(400).send(`Error updating content ${contentId}`);
+    }
+  }
+);
+
 app.get(
-  "/upload-tiktok-status",
+  ServiceUploadRoutes.UploadTiktokStatus,
   async (req: Request<{}, {}, {}, UploadTikTokStatusQueryParams>, res) => {
     const { project_id, publish_id } = req.query;
 
@@ -112,17 +171,13 @@ app.get(
       res
         .status(400)
         .json(
-          `Error checking tiktok upload status for ${publish_id} / ${project_id}`
+          `Error getting upload status for TikTok publish_id ${publish_id}`
         );
     }
   }
 );
 
-if (!process.env.PORT) {
-  throw new Error("PORT environment variable not set");
-}
-
-const port = parseInt(process.env.PORT);
+const port = parseInt(process.env.PORT ?? "8080");
 
 app.listen(port, () => {
   console.log(`listening on port ${port}`);

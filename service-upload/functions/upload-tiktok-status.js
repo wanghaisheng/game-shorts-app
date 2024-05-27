@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadTikTokStatus = void 0;
-function uploadTikTokStatus({ publishId, projectId, prisma, }) {
+function uploadTikTokStatus({ prisma, projectId, publishId, }) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const project = yield prisma.project.findUnique({
@@ -24,7 +24,7 @@ function uploadTikTokStatus({ publishId, projectId, prisma, }) {
         if (!((_a = project === null || project === void 0 ? void 0 : project.tikTokCredentials) === null || _a === void 0 ? void 0 : _a.accessToken)) {
             throw new Error(`Missing TikTok access token for project ${projectId}`);
         }
-        const statusRes = yield fetch("https://open.tiktokapis.com/v2/post/publish/status/fetch/", {
+        const res = yield fetch("https://open.tiktokapis.com/v2/post/publish/status/fetch/", {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${project.tikTokCredentials.accessToken}`,
@@ -34,12 +34,12 @@ function uploadTikTokStatus({ publishId, projectId, prisma, }) {
                 publish_id: publishId,
             }),
         });
-        if (!statusRes.ok) {
+        if (!res.ok) {
             throw new Error(`Error fetching tiktok status publish_id ${publishId}`);
         }
         return {
             message: `Status for publish_id ${publishId}`,
-            statusJson: statusRes.json(),
+            json: res.json(),
         };
     });
 }

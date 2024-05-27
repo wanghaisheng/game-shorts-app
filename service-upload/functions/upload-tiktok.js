@@ -11,38 +11,57 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadTikTok = void 0;
 const constants_1 = require("../utils/constants");
-function uploadTikTok({ projectId, slug, prisma, }) {
+function uploadTikTok({ contentId, prisma }) {
     return __awaiter(this, void 0, void 0, function* () {
-        const project = yield prisma.project.findUnique({
+        const content = yield prisma.content.findUniqueOrThrow({
             where: {
-                id: projectId,
+                id: contentId,
             },
             select: {
-                tikTokCredentials: true,
+                project: {
+                    select: {
+                        id: true,
+                        tikTokCredentials: true,
+                    },
+                },
             },
         });
-        if (!(project === null || project === void 0 ? void 0 : project.tikTokCredentials)) {
-            throw new Error("no tiktok credentials");
+        if (!content.project.tikTokCredentials) {
+            throw new Error("Missing TikTok credentials");
         }
-        console.log(`Starting upload to tiktok for ${projectId} / ${slug}`);
-        const initResponse = yield fetch(`https://open.tiktokapis.com/v2/post/publish/inbox/video/init/`, {
+        console.log(`Starting upload to ${contentId} to tiktok`);
+        yield prisma.content.update({
+            where: {
+                id: contentId,
+            },
+            data: {
+                tikTokStatus: "UPLOADING",
+            },
+        });
+        const res = yield fetch(`https://open.tiktokapis.com/v2/post/publish/inbox/video/init/`, {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${project.tikTokCredentials.accessToken}`,
+                Authorization: `Bearer ${content.project.tikTokCredentials.accessToken}`,
                 "Content-Type": "application/json;",
             },
             body: JSON.stringify({
                 source: "PULL_FROM_URL",
-                video_url: `${constants_1.APP_BASE_URL}/resource/serve-video/${projectId}/${slug}`, // "https://sf16-va.tiktokcdn.com/obj/eden-va2/uvpapzpbxjH-aulauvJ-WV[[/ljhwZthlaukjlkulzlp/3min.mp4",
+                video_url: `${constants_1.APP_BASE_URL}/resource/serve-video/${content.project.id}/${contentId}`,
             }),
         });
-        if (!initResponse.ok) {
-            console.log(initResponse);
-            throw new Error(`Error on tiktok initialization request for ${projectId} / ${slug}`);
+        if (!res.ok) {
+            yield prisma.content.update({
+                where: {
+                    id: contentId,
+                },
+                data: {
+                    tikTokStatus: "NOT_STARTED",
+                },
+            });
+            throw new Error(`Error initializing TikTok upload for ${contentId}`);
         }
         return {
-            message: `Success initializing tiktok upload for ${projectId} / ${slug}`,
-            initResponse: initResponse.json(),
+            message: `Initialized TikTok upload for ${contentId}`,
         };
     });
 }

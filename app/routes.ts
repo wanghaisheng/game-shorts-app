@@ -7,16 +7,15 @@ export const Routes = {
   AuthorizeTwitter: `/authorize-integration/twitter`,
   Admin: `/admin`,
   AdminCreateProject: `/admin/create-project`,
-  AdminContent: (slug: string) => `/admin/content/${slug}`,
+  AdminContent: `/admin/content`,
+  AdminContentDetails: (slug: string) => `/admin/content/details/${slug}`,
+  AdminContentPublish: (slug: string) => `/admin/content/publish/${slug}`,
   AdminContentStatus: (slug: string) => `/admin/content/status/${slug}`,
-  AdminContentTitle: `/admin/content/title`,
-  AdminContentVideo: (slug: string) => `/admin/content/video/${slug}`,
-  AdminContentScheduler: (slug: string) => `/admin/content/scheduler/${slug}`,
-  AdminContentTagsDescription: (slug: string) =>
-    `/admin/content/tags-description/${slug}`,
+  AdminContentUpload: (id: string) => `/admin/content/upload/${id}`,
   Login: `/login`,
   Logout: `/logout`,
   Signup: `/signup`,
+  Join: `/join`,
   ResourceVideoTags: (projectId: string, slug: string) =>
     `/resource/video-tags/${projectId}/${slug}`,
 };

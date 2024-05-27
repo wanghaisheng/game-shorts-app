@@ -1,8 +1,12 @@
 import { cssBundleHref } from "@remix-run/css-bundle";
-import type { LoaderArgs, MetaFunction } from "@remix-run/node";
-import type { LinksFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { Link, useLocation } from "@remix-run/react";
+import type {
+  ActionFunction,
+  LinksFunction,
+  LoaderArgs,
+  MetaFunction,
+} from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import { useLocation } from "@remix-run/react";
 import {
   Links,
   LiveReload,
@@ -11,11 +15,13 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
+import { zfd } from "zod-form-data";
 
-import styles from "./root.module.css";
+import stylesheet from "../node_modules/@t_g/default-ui/package/index.css";
+import { prisma } from "./db.server";
 import { Routes } from "./routes";
 import { getUser } from "./session.server";
-import stylesheet from "./styles/index.css";
+import localStyles from "./styles/index.css";
 
 export const links: LinksFunction = () => {
   return [
@@ -29,6 +35,11 @@ export const links: LinksFunction = () => {
       href: stylesheet,
       type: "text/css",
     },
+    {
+      rel: "stylesheet",
+      href: localStyles,
+      type: "text/css",
+    },
     ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
   ];
 };
@@ -39,10 +50,40 @@ export const meta: MetaFunction = () => ({
   viewport: "width=device-width,initial-scale=1",
 });
 
-export async function loader({ request }: LoaderArgs) {
-  return json({
-    user: await getUser(request),
+type LoaderData = {
+  user: ReturnType<typeof getUser> extends Promise<infer U> ? U : never;
+};
+
+const schema = zfd.formData({
+  currentProjectId: zfd.text().optional(),
+  userId: zfd.text().optional(),
+});
+
+export const action: ActionFunction = async ({ request }) => {
+  const { currentProjectId, userId } = schema.parse(await request.formData());
+
+  if (currentProjectId === "create-new-project") {
+    return redirect(Routes.AdminCreateProject);
+  }
+
+  if (!userId) {
+    throw new Error("Missing user");
+  }
+
+  const user = prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      currentProjectId,
+    },
   });
+
+  return user;
+};
+
+export async function loader({ request }: LoaderArgs) {
+  return json<LoaderData>({ user: await getUser(request) });
 }
 
 export default function App() {
@@ -61,25 +102,6 @@ export default function App() {
         ) : null}
       </head>
       <body>
-        <nav className={styles.nav}>
-          <Link to={Routes.Index}>
-            <h3>Content</h3>
-          </Link>
-          <menu className={styles.menu}>
-            <ul className={styles.ul}>
-              <li>
-                <Link to={Routes.Admin}>
-                  <h3>Settings</h3>
-                </Link>
-              </li>
-              <li>
-                <Link to={Routes.AdminContentTitle}>
-                  <h3>Create</h3>
-                </Link>
-              </li>
-            </ul>
-          </menu>
-        </nav>
         <Outlet />
         <ScrollRestoration />
         <Scripts />

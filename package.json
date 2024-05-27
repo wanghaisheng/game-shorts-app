@@ -5,6 +5,7 @@
   "scripts": {
     "build": "run-s build:*",
     "build:remix": "remix build",
+    "db:seed": "prisma db seed --preview-feature",
     "dev": "run-p dev:*",
     "dev:remix": "cross-env NODE_ENV=development binode --require ./mocks -- @remix-run/dev:remix dev",
     "format": "prettier --write .",
@@ -12,6 +13,8 @@
     "setup": "prisma generate && prisma migrate deploy && prisma db seed",
     "start": "remix-serve build",
     "start:mocks": "binode --require ./mocks -- @remix-run/serve:remix-serve build",
+    "migrate:dev": "dotenv -e .env.development -- npx prisma migrate deploy",
+    "migrate:prod": "dotenv -e .env.production -- npx prisma migrate deploy",
     "test": "vitest",
     "test:e2e:dev": "start-server-and-test dev http://localhost:3000 \"npx cypress open\"",
     "pretest:e2e:run": "npm run build",
@@ -36,8 +39,10 @@
     "@remix-run/react": "1.16.1",
     "@remix-run/serve": "1.16.1",
     "@remix-run/server-runtime": "1.16.1",
+    "@t_g/default-ui": "^0.36.0",
     "@types/facebook-js-sdk": "^3.3.6",
     "bcryptjs": "^2.4.3",
+    "dotenv-cli": "^7.3.0",
     "googleapis": "^110.0.0",
     "isbot": "^3.5.3",
     "lodash": "^4.17.21",
@@ -47,6 +52,7 @@
     "react-dom": "^18.2.0",
     "stripe": "^11.18.0",
     "tiny-invariant": "^1.2.0",
+    "uuid": "^9.0.1",
     "zod": "^3.21.4",
     "zod-form-data": "^2.0.1"
   },
@@ -68,6 +74,7 @@
     "@types/node-fetch": "^2.6.2",
     "@types/react": "^18.0.20",
     "@types/react-dom": "^18.0.6",
+    "@types/uuid": "^9.0.7",
     "@vitejs/plugin-react": "^2.1.0",
     "@vitest/coverage-c8": "^0.23.4",
     "autoprefixer": "^10.4.11",
@@ -101,6 +108,6 @@
     "node": ">=14"
   },
   "prisma": {
-    "seed": "ts-node --require tsconfig-paths/register"
+    "seed": "ts-node ./prisma/seed.ts"
   }
 }

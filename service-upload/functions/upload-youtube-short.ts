@@ -5,32 +5,30 @@ import type { PrismaClient } from "../generated";
 import { UploadStatus } from "../generated";
 
 export interface UploadYoutubeShortBody {
-  projectId: string;
-  slug: string;
+  contentId: string;
 }
 
-interface UploadYoutubeShortParams {
-  projectId: string;
-  slug: string;
+type UploadYoutubeShortParams = UploadYoutubeShortBody & {
   prisma: PrismaClient;
-}
+};
 
 export async function uploadYouTubeShort({
-  projectId,
-  slug,
+  contentId,
   prisma,
 }: UploadYoutubeShortParams) {
   const content = await prisma.content.update({
     where: {
-      projectId_slug: {
-        projectId,
-        slug,
-      },
+      id: contentId,
     },
     select: {
       title: true,
       description: true,
       tags: true,
+      project: {
+        select: {
+          id: true,
+        },
+      },
     },
     data: {
       youtubeStatus: UploadStatus.UPLOADING,
@@ -39,18 +37,29 @@ export async function uploadYouTubeShort({
 
   const project = await prisma.project.findUnique({
     where: {
-      id: projectId,
+      id: content.project.id,
     },
     select: {
       youtubeCredentials: true,
     },
   });
 
-  if (
-    !project?.youtubeCredentials?.accessToken ||
-    !project?.youtubeCredentials?.refreshToken
-  ) {
-    throw new Error("No youtube credentials found");
+  if (!project?.youtubeCredentials?.accessToken) {
+    throw new Error(
+      `Missing YouTube credentials access token for project ${content.project.id}`
+    );
+  }
+
+  if (!project?.youtubeCredentials?.refreshToken) {
+    throw new Error(
+      `Missing YouTube credentials refresh token for project ${content.project.id}`
+    );
+  }
+
+  if (!project?.youtubeCredentials?.channelId) {
+    throw new Error(
+      `Missing YouTube credentials channel id for project ${content.project.id}`
+    );
   }
 
   const oauth2Client = new google.auth.OAuth2(
@@ -64,28 +73,23 @@ export async function uploadYouTubeShort({
     refresh_token: project.youtubeCredentials.refreshToken,
   });
 
-  const youtube = google.youtube({
-    version: "v3",
-    auth: oauth2Client,
-  });
-
-  const filePath = `${slug}.mp4`;
+  const filePath = `${contentId}.mp4`;
 
   const bodyStream = createReadStream(filePath);
 
   await prisma.content.update({
     where: {
-      projectId_slug: {
-        projectId,
-        slug,
-      },
+      id: contentId,
     },
     data: {
       youtubeStatus: UploadStatus.UPLOADING,
     },
   });
 
-  console.log(`Upload started for video ${projectId} / ${slug}`);
+  const youtube = google.youtube({
+    version: "v3",
+    auth: oauth2Client,
+  });
 
   return youtube.videos
     .insert({
@@ -106,12 +110,11 @@ export async function uploadYouTubeShort({
       },
     })
     .then(async (response) => {
+      console.log(response, "upload-youtube response");
+
       await prisma.content.update({
         where: {
-          projectId_slug: {
-            projectId,
-            slug,
-          },
+          id: contentId,
         },
         data: {
           youtubeStatus: UploadStatus.PRIVATE,
@@ -119,18 +122,20 @@ export async function uploadYouTubeShort({
         },
       });
 
+      if (!project.youtubeCredentials?.channelId) {
+        throw new Error(
+          `Missing YouTube credentials channel id for project ${content.project.id}`
+        );
+      }
+
       return {
-        message: `Success uploading ${projectId} ${slug} to youtube`,
+        message: `Uploaded ${contentId} to YouTube channel ${project.youtubeCredentials.channelId}`,
       };
     })
-
     .catch(async (error) => {
       await prisma.content.update({
         where: {
-          projectId_slug: {
-            projectId,
-            slug,
-          },
+          id: contentId,
         },
         data: {
           youtubeStatus: UploadStatus.NOT_STARTED,
@@ -138,6 +143,9 @@ export async function uploadYouTubeShort({
       });
 
       console.log(error);
-      throw new Error(`Error uploading ${projectId} / ${slug} to youtube`);
+
+      throw new Error(
+        `Error uploading ${contentId} to YouTube channel ${project.youtubeCredentials?.channelId}`
+      );
     });
 }

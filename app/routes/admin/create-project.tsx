@@ -3,14 +3,15 @@ import type {
   LoaderFunction,
   MetaFunction,
 } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
-import { Form, useNavigation } from "@remix-run/react";
+import { json, redirect } from "@remix-run/node";
+import { Form, useLoaderData, useNavigation } from "@remix-run/react";
 import invariant from "tiny-invariant";
 
+import { Layout } from "~/components/layout";
 import { prisma } from "~/db.server";
+import { storage } from "~/entry.server";
 import { Routes } from "~/routes";
 import { getUser } from "~/session.server";
-import styles from "~/styles/admin.module.css";
 
 export const meta: MetaFunction = () => {
   return {
@@ -18,12 +19,16 @@ export const meta: MetaFunction = () => {
   };
 };
 
+type LoaderData = {
+  user: Awaited<ReturnType<typeof getUser>>;
+};
+
 export const loader: LoaderFunction = async ({ request }) => {
   const user = await getUser(request);
 
   if (!user) return redirect(Routes.Login);
 
-  return null;
+  return json<LoaderData>({ user });
 };
 
 export const action: ActionFunction = async ({ request }) => {
@@ -56,24 +61,46 @@ export const action: ActionFunction = async ({ request }) => {
     },
   });
 
+  const [bucket] = await storage.bucket(project.id).exists();
+
+  if (!bucket) {
+    await storage.createBucket(project.id).then(async () => {
+      await storage.bucket(project.id).makePublic();
+      await storage.bucket(project.id).setCorsConfiguration([
+        {
+          origin: ["*"],
+          method: ["PUT", "GET"],
+          responseHeader: ["Content-Type"],
+        },
+      ]);
+    });
+  }
+
   return redirect(Routes.Admin);
 };
 
 export default function Page() {
   const transition = useNavigation();
 
+  const { user } = useLoaderData<LoaderData>();
+
   const disabled =
     transition.state === "loading" || transition.state === "submitting";
 
   return (
-    <main className={styles.main}>
-      <fieldset disabled={disabled} className={styles.fieldset}>
+    <Layout
+      h1="Create Project"
+      h2="Enter a project name for your video series"
+      user={user}
+    >
+      <fieldset disabled={disabled}>
         <Form method="post">
           <label htmlFor="name">Project Name</label>
-          <input type="text" id="name" name="name" className={styles.input} />
-          <button type="submit">Create Project</button>
+          <br />
+          <input type="text" id="name" name="name" />
+          <button type="submit">Next</button>
         </Form>
       </fieldset>
-    </main>
+    </Layout>
   );
 }

@@ -5,16 +5,21 @@ import type { Request } from "express";
 import express, { json } from "express";
 
 import { CloudIntelligenceTypes } from "./cloud-intelligence-types";
-import type { GenerateTagsRequest } from "./functions/generate-tags";
-import { generateTags } from "./functions/generate-tags";
-import type { RecognizeTextRequest } from "./functions/recognize-text";
-import { recognizeText } from "./functions/recognize-text";
-import type { TranscribeRequest } from "./functions/transcribe";
-import { transcribe } from "./functions/transcribe";
+import {
+  generateTags,
+  type GenerateTagsRequest,
+} from "./functions/generate-tags";
+import {
+  recognizeText,
+  type RecognizeTextRequest,
+} from "./functions/recognize-text";
+import { transcribe, type TranscribeRequest } from "./functions/transcribe";
 import { PrismaClient } from "./generated/index.js";
 import { APP_BASE_URL } from "./utils/constants";
 
-dotenv.config();
+dotenv.config({
+  path: `../.env.${process.env.NODE_ENV}`,
+});
 
 export const cloudIntelligence = new v1.VideoIntelligenceServiceClient();
 
@@ -35,59 +40,54 @@ app.use(
 app.post(
   "/generate-tags",
   async (req: Request<{}, {}, GenerateTagsRequest>, res) => {
-    const { projectId, slug } = req.body;
+    const { contentId } = req.body;
 
     try {
       const { message } = await generateTags({
-        projectId,
-        slug,
+        contentId,
         prisma,
       });
 
       res.status(200).json(message);
     } catch (error) {
       console.log(error);
-      res.status(400).json(`Error generating tags for ${projectId} / ${slug}`);
+      res.status(400).json(`Error generating tags for ${contentId}`);
     }
   }
 );
 app.post(
   "/recognize-text",
   async (req: Request<{}, {}, RecognizeTextRequest>, res) => {
-    const { projectId, slug } = req.body;
+    const { contentId } = req.body;
 
     try {
       const { message } = await recognizeText({
-        projectId,
-        slug,
+        contentId,
         prisma,
       });
 
       res.status(200).json(message);
     } catch (error) {
       console.log(error);
-      res
-        .status(400)
-        .send(`Error recognizing text for content ${projectId} / ${slug}`);
+      res.status(400).send(`Error recognizing text for ${contentId}`);
     }
   }
 );
 app.post(
   "/transcribe",
   async (req: Request<{}, {}, TranscribeRequest>, res) => {
-    const { projectId, slug } = req.body;
+    const { contentId } = req.body;
 
     try {
       const { message } = await transcribe({
-        projectId,
-        slug,
+        contentId,
         prisma,
       });
 
       res.status(200).send(message);
     } catch (error) {
       console.log(error);
-      res.status(400).send(`Error transcribing content ${projectId} / ${slug}`);
+      res.status(400).send(`Error transcribing content ${contentId}`);
     }
   }
 );

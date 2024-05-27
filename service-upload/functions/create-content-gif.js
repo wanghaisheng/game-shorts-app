@@ -10,39 +10,37 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createContentGif = void 0;
+const ffmpeg_1 = require("@ffmpeg-installer/ffmpeg");
 const child_process_1 = require("child_process");
-function createContentGif({ projectId, slug, ffmpegPath, storage, prisma, }) {
+function createContentGif({ projectId, contentId, storage, prisma, }) {
     return __awaiter(this, void 0, void 0, function* () {
-        (0, child_process_1.exec)(`${ffmpegPath} -i ${slug}.mp4 -vf "fps=31,scale=640:-1:flags=lanczos" -b:v 5000k -y -t 3 ${slug}.gif`, (error) => __awaiter(this, void 0, void 0, function* () {
+        const gifFile = `${contentId}.gif`;
+        const gifStoragePath = `https://storage.googleapis.com/${projectId}/${gifFile}`;
+        (0, child_process_1.exec)(`${ffmpeg_1.path} -i ${contentId}.mp4 -vf "fps=31,scale=640:-1:flags=lanczos" -b:v 5000k -y -t 3 ${gifFile}`, (error) => __awaiter(this, void 0, void 0, function* () {
             if (error) {
-                console.log(`Error creating gif ${projectId} $${slug}`, error);
-                throw new Error("Error creating gif");
+                console.log(`Error`, error);
+                throw new Error(`ffmpeg error creating ${gifFile}`);
             }
-            const cloudStoragePath = `https://storage.googleapis.com/${projectId}/${slug}.gif`;
             yield storage
                 .bucket(projectId)
-                .upload(`${slug}.gif`)
+                .upload(gifFile)
                 .then(() => __awaiter(this, void 0, void 0, function* () {
                 yield prisma.content.update({
                     where: {
-                        projectId_slug: {
-                            projectId,
-                            slug,
-                        },
+                        id: contentId,
                     },
                     data: {
-                        gif: cloudStoragePath,
+                        gif: gifStoragePath,
                     },
                 });
             }))
                 .catch((error) => {
                 console.log(error);
-                throw new Error(`Error saving cloudStorage path ${cloudStoragePath}`);
+                throw new Error(`Error uploading ${gifFile} to ${gifStoragePath}`);
             });
         }));
         return {
-            success: true,
-            message: `Created Gif for ${projectId} / ${slug}`,
+            message: `Uploaded ${gifFile} url to ${gifStoragePath}`,
         };
     });
 }
